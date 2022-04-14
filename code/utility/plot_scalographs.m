@@ -2,6 +2,17 @@ function [hh] = plot_scalographs(SC,ax,h,colorbars)
 
 % plotting
 
+if nargin==1
+    ax = gca;
+    h.fs = [16 12 8];
+    colorbars = false(1,length(SC));
+elseif nargin==2
+    h.fs = [16 12 8];
+    colorbars = false(1,length(SC));
+elseif nargin==3
+    colorbars = false(1,length(SC));
+end
+
 if ismatrix(ax)
     axix = reshape([SC.ax_ix],size(ax,1),[])';
     axix = [axix(:)];

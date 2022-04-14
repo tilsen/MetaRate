@@ -40,8 +40,17 @@ for i=1:length(G)
     if isempty(Gx), continue; end
     
     for j=1:length(Gx)
-        TT{i,j} = PAR.index(T,Gx(j).target,Gx(j).rate_meas,Gx(j).inverse_rate,...
-            Gx(j).target_exclusion,Gx(j).data_selection);
+
+        if isempty(PAR)
+            TT{i,j} = T(ismember(T.target,Gx(j).target) ...
+                & ismember(T.rate_measure,Gx(j).rate_meas) ...
+                & ismember(T.inverse_rate,Gx(j).inverse_rate)...
+                & ismember(T.target_exclusion,Gx(j).target_exclusion)...
+                & ismember(T.data_selection,Gx(j).data_selection),:);
+        else
+            TT{i,j} = PAR.index(T,Gx(j).target,Gx(j).rate_meas,Gx(j).inverse_rate,...
+                Gx(j).target_exclusion,Gx(j).data_selection);
+        end
         
         if isempty(TT{i,j})
             fprintf('error: scalogram values not found\n'); 
