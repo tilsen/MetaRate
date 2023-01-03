@@ -26,6 +26,10 @@ if isnan(winpars.scale_range)
             winpars.scale_range = [0.05 1];
         case {'endanchored','beginanchored'}
             winpars.scale_range = [0.05 1.5];
+        case 'extendwin'
+            winpars.scale_range = [0.05 1.0];            
+        case 'adaptivewin'
+            winpars.scale_range = [0.05 inf];
     end
 end
 
@@ -39,9 +43,15 @@ if isnan(winpars.center_range)
         case 'endanchored'
             winpars.center_range = [-1.5 0];     
         case 'beginanchored'
-            winpars.center_range = [0 1.5];         
+            winpars.center_range = [0 1.5];  
+        case 'extendwin'
+            winpars.center_range = [-0.5 0.5];                  
+        case 'adaptivewin'
+            winpars.center_range = [-1 1];            
     end
 end
+
+%
 
 %all windows
 scales = winpars.scale_range(1):winpars.scale_step:winpars.scale_range(2);
