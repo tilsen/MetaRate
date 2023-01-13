@@ -2,7 +2,7 @@ function [] = metarate_scalographic_analysis_batch()
 
 h = metarate_helpers;
 
-overwrite = true;
+overwrite = false;
 use_parallel = false;
 
 switch(use_parallel)
@@ -58,18 +58,15 @@ for i=1:length(targets)
             load_new_target = false;
         end
         
-        n = (length(targets)-1)*i+j;
+        n = (height(P)*(i-1))+j;
         status_str = status('progress_full',n,length(targets)*height(P),['processing ' outfile]); %#ok<NASGU>
                 
-        tic
         T = metarate_scalographic_analysis(TR,D,...
             'unit',P.unit{j},...
             'target_exclusion',P.target_exclusion(j),...
             'data_selection',P.data_selection{j},...
             'inverse_rate',P.inverse_rate(j), ...
             'use_parallel',use_parallel);
-
-        toc
         
         par = table2struct(P(j,:));
         par.target = targets{i};
