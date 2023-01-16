@@ -8,11 +8,13 @@ ff = rdir([h.regress_dir 'scalogram_*.mat']);
 
 T = [];
 for i=1:length(ff)
+    status_str = status('progress_full',i,length(ff));
     X = load(ff(i).name);
     target = regexp(ff(i).name,'_target\[(\w+)\]_','tokens','once');
     X.T.target = repmat(target,height(X.T),1);
     T = [T; X.T];
 end
+status('reset');
 
 T.sizes = T.scale; T.scale = [];
 

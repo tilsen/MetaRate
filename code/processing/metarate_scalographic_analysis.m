@@ -5,6 +5,7 @@ h = metarate_helpers();
 p = inputParser;
 
 def_data_selection = 'bytarget';
+def_window_method = 'centered';
 def_inverse_rate = 2;
 def_target_exclusion = true;
 def_target_ident_field = 'phone';
@@ -19,7 +20,9 @@ def_n_threads = 6;
 
 valid_data_selections = {
     'bywindow' 
-    'bytarget' 
+    'bytarget'};
+
+valid_window_methods = {
     'beginanchored' 
     'endanchored'
     'example1' 
@@ -27,13 +30,19 @@ valid_data_selections = {
     'extendwin'
     'adaptivewin'};
 
-valid_units = {'phones' 'moras' 'sylbs' 'words' 'artics'};
+valid_units = {
+    'phones' 
+    'moras' 
+    'sylbs' 
+    'words' 
+    'artics'};
 
 addRequired(p,'TR',@(x)istable(x));
 addRequired(p,'D',@(x)istable(x));
 addParameter(p,'data_selection',def_data_selection,@(x)ismember(x,valid_data_selections));
 addParameter(p,'inverse_rate',def_inverse_rate,@(x)ismember(x,[0 1 2]));
 addParameter(p,'target_exclusion',def_target_exclusion,@(x)islogical(x));
+addParameter(p,'window_method',def_window_method,@(x)ismember(x,valid_window_methods));
 addParameter(p,'unit',def_unit,@(x)ismember(x,valid_units));
 addParameter(p,'frame_per',def_frame_per);
 addParameter(p,'center_step',def_center_step);
@@ -47,10 +56,23 @@ addParameter(p,'n_threads',def_n_threads);
 parse(p,TR,D,varargin{:});
 
 res = p.Results;
+res.D=[]; %dont need this
+res.TR=[];
 
 dt = res.frame_per;
 
+switch(p.Results.use_parallel)
+    case 1
+        poolobj = gcp('nocreate');
+        if isempty(poolobj), poolobj = parpool(p.Results.n_threads); end %#ok<NASGU> 
+end
+
 D = add_rate_unit_info(D,p);
+
+%add utterance duration info
+TR.utt_t0 = cellfun(@(c)c(2),TR.words_t0);
+TR.utt_t1 = cellfun(@(c)c(end-1),TR.words_t1);
+TR.utt_dur = TR.utt_t1-TR.utt_t0;
 
 %% check for compatibility of data selection method
 switch(p.Results.data_selection)
@@ -63,26 +85,25 @@ switch(p.Results.data_selection)
 end
 
 %% calculate window scales/centers for different data selection methods
-switch(p.Results.data_selection)
+switch(res.window_method)
 
-    %uses all data that fits in given window
-    case 'bywindow'                     
-        scale_range = [0.05 1.5];
-        center_range = [-1 1];
-
-    %(="across-window" strategy) only include data that fits in all windows 
-    case 'bytarget'                     
-        scale_range = [0.05 1];
-        center_range = [-0.5 0.5];
+    %centered method (default)
+    case 'centered'            
+        switch(res.data_selection)
+            case 'bywindow'
+                scale_range = [0.05 1.5];
+                center_range = [-1 1];
+            case 'bytarget'
+                scale_range = [0.05 1];
+                center_range = [-0.5 0.5];
+        end
         
-    %ends of windows anchored to beginnings of units, 
-    %only include data that fits in all windows 
+    %ends of windows anchored to beginnings of target units
     case 'endanchored'                  
         scale_range = [0.05 1.0];
         center_range = [-1.0 0];        %up to 1.5 sec before unit
         
-    %beginnings of windows anchored to ends of units,
-    %only include data that fits in all windows
+    %beginnings of windows anchored to ends of target unit
     case 'beginanchored'                
         scale_range = [0.05 1.0];
         center_range = [0 1.0];         %up to 1.5 sec after unit
@@ -98,29 +119,51 @@ switch(p.Results.data_selection)
 
     %extends the window edges to compensate for exclusion (d/n make sense with inclusion)   
     case 'extendwin'
-        scale_range = [0.05 1.0];
+        scale_range = [0.5 1.0];
         center_range = [-0.5 0.5];  
 
     %extends range to compensate for exclusion and shifts center if
     %necessary (d/n discard tokens in utterances smaller than window scale)
-    case 'adaptivewin'
-        TR.utt_t0 = cellfun(@(c)c(2),TR.words_t0);
-        TR.utt_t1 = cellfun(@(c)c(end-1),TR.words_t1);
-        TR.utt_dur = TR.utt_t1-TR.utt_t0;        
-        scale_range = [0.05 floor(max(TR.utt_dur)/0.5)*0.5];
+    case 'adaptivewin' 
+        scale_range = [0.5 floor(max(TR.utt_dur)/0.5)*0.5];
         center_range = [-0.5 0.5];
 
 end
 
-WIN = metarate_construct_windows(p.Results.data_selection,...
-    'scale_range',scale_range,'center_range',center_range);
+WIN = metarate_construct_windows(p.Results.data_selection,scale_range,center_range);
 
-[D,WIN] = metarate_match_data_windows(D,WIN);
-
-%% get proportional duration array
+%% prepare data table
 
 %add trial indices to data table:
 [~,D.TRix] = ismember(D.fname,TR.fname);
+
+D = D(:,{'t0' 't1' 'rateunit_t0' 'rateunit_t1' 'utt_t0' 'utt_t1' 'TRix' 'phone' 'subj' 'dur'});
+
+%round to avoid precision errors
+timef = {'t0' 't1' 'rateunit_t0' 'rateunit_t1' 'utt_t0' 'utt_t1'};
+for i=1:length(timef)
+    D.(timef{i}) = round(D.(timef{i}),6);
+end
+
+%midpoint of target phone
+D.tmid = (D.t0+D.t1)/2;
+
+%dur of rate unit (for extendwin method)
+D.rateunit_dur = (D.rateunit_t1-D.rateunit_t0);
+
+%anchorpoint for pre-exclusion:
+switch(res.data_selection)
+    case 'beginanchored'
+        D.tanch = D.rateunit_t1;
+
+    case 'endanchored'
+        D.tanch = D.rateunit_t0;
+
+    otherwise
+        D.tanch = D.tmid;
+end
+
+%% get proportional duration array
 
 %fieldnames specific to rate measure units:
 f_pdur = [p.Results.unit '_ufr_prop_dur'];
@@ -128,29 +171,43 @@ f_pdur = [p.Results.unit '_ufr_prop_dur'];
 %times of frames (for data rows): 
 FRT = TR.frt(D.TRix);
 
+%avoids precision errors
+FRT = cellfun(@(c){round(c,6)},FRT);
+
 %proportional durations (for data rows): 
 PDUR = TR.(f_pdur)(D.TRix);
 Nr = size(PDUR,1);
 
-% set pre-/post-utterance intervals to NaN (associated with init/final sp)
-IXs_out_of_range = cellfun(@(c,d,e){c<d | c>e},FRT,num2cell(D.utt_t0),num2cell(D.utt_t1));
+%% handle utterance edges
 
-for i=1:Nr
-    PDUR{i}(IXs_out_of_range{i}) = nan;
+% set pre-/post-utterance intervals to Inf/NaN (associated with init/final sp)
+IXs_out_of_range = cellfun(@(c,d,e){c<d | c>=e},FRT,num2cell(D.utt_t0),num2cell(D.utt_t1));
+
+switch(p.Results.window_method)
+    case 'adaptivewin' %for this method we set out-of-utterance samples to nan,
+        %so that no data are excluded if the window is larger than the
+        %utterance:
+        for i=1:length(PDUR)
+            PDUR{i}(IXs_out_of_range{i}) = nan;
+        end
+
+    otherwise %for all other methods we set out-of-utterance samples to inf, 
+        % so that targets will be excluded:
+        for i=1:length(PDUR)
+            PDUR{i}(IXs_out_of_range{i}) = inf;
+        end
 end
 
 %% handle target exclusion:
-%removes rateunit from each proportional duration timeseries
-
 switch(p.Results.target_exclusion)
-    case true  
-     D.rateunit_t0_ix = floor(D.rateunit_t0/dt);   
-     D.rateunit_t1_ix = ceil(D.rateunit_t1/dt);  
+    case true  %under target exclusion we set the rate-unit portion of
+         % the proportional duration timeseries to nan so that it is not
+         % counted:
+     D.rateunit_t0_ix = ceil(D.rateunit_t0/dt)+1;   
+     D.rateunit_t1_ix = floor(D.rateunit_t1/dt);  
 
-     %set rate unit interval to inf
-
-     for i=1:Nr
-        PDUR{i} = PDUR{i}([1:(D.rateunit_t0_ix(i)-1) (D.rateunit_t1_ix(i)+1):end]);
+     for i=1:length(PDUR) 
+         PDUR{i}(D.rateunit_t0_ix(i):D.rateunit_t1_ix(i)) = nan;
      end
 
 end
@@ -162,120 +219,68 @@ PDUR = cell2mat(PDUR);
 
 zero_sample = 1; %keep track of time=0 sample.
 
-pad_samples = ceil(size(PDUR,2)/2); %add exactly this many nan samples at beginning and end
+%% calculate all absolute window edges
+[we0,we1] = metarate_data_window_edges(D,WIN,p.Results.window_method);
 
-%begin- and end-pad:
-PDUR = [single(nan(size(PDUR,1),pad_samples)) PDUR single(nan(size(PDUR,1),pad_samples))]; 
-
-zero_sample = zero_sample+pad_samples;
-
-%% choose window anchor
+%% exclude datapoints if selection method is bytarget
 switch(p.Results.data_selection)
-    case 'beginanchored'
-        D.t_anch = D.t1;
-    case 'endanchored'
-        D.t_anch = D.t0;
-    case 'adaptivewin'
-        D.t_anch = (D.we0+D.we1)/2;
-    otherwise
-        D.t_anch = D.tmid;
+    case 'bytarget'
+        valid_win = all(we0>=D.utt_t0 & we1<D.utt_t1,2);
+        D = D(valid_win,:);
+        we0 = we0(valid_win,:);
+        we1 = we1(valid_win,:);
+        PDUR = PDUR(valid_win,:);
 end
 
-%% centers proportion duration signals on t_anch
-anch_samples = arrayfun(@(c)floor(c/dt),D.t_anch)+zero_sample;
-center_sample = ceil(size(PDUR,2)/2);
-shifts = anch_samples-center_sample;
-
-%anchorpoint is center_sample
-Nfr = size(PDUR,2);
-for i=1:Nfr
-    PDUR(i,:) = circshift(PDUR(i,:),-shifts(i));
-end
-
-%% prepare windows that multiply proportional duration matrix
-
-%update window edge indices to reflect signal-centering in previous block
-WIN.edge_ixs = center_sample+floor(WIN.edges/dt); 
-
-%remove unnecessary right-edge samples of proportional dur:
-max_ix = max(WIN.edge_ixs(:,2));
-PDUR = PDUR(:,1:max_ix);
-
-%remove unnecessary left-edge samples:
-min_ix = min(WIN.edge_ixs(:,1));
-PDUR = PDUR(:,min_ix:end);
-center_sample = center_sample-(min_ix-1);
-WIN.edge_ixs = center_sample+floor(WIN.edges/dt); %update edge indices again
-
-%select only valid windows
-Nfr = size(PDUR,2);
-WIN.valid = all(WIN.edge_ixs(:,1)>0 & WIN.edge_ixs(:,2)<=Nfr,2);
-
-switch(p.Results.data_selection)
-    case 'adaptivewin'
-        if any(~WIN.valid)
-            fprintf('ERROR: unexpected invalid windows in adaptivewin method\n');
-            return;
-        end    
-end
-
-WIN = WIN(WIN.valid,:);
-Nw = height(WIN);
-WIN.samp_ixs = single(nan(height(WIN),size(PDUR,2)));
-for i=1:height(WIN)
-    WIN.samp_ixs(i,WIN.edge_ixs(i,1):WIN.edge_ixs(i,2)) = 1;
-end
+%% matrix of proportional duration timepoints
+pdur_times = (0:(size(PDUR,2)-1))*p.Results.frame_per;
+pdur_times = pdur_times-pdur_times(zero_sample);
+pdur_times = repmat(pdur_times,height(D),1);
 
 %% run analyses
 
 switch(p.Results.inverse_rate)
     case 2
-        rr = repmat({[]},Nw,2);
-        ds = repmat({[]},Nw,2);        
+        rr = repmat({[]},height(WIN),2);
+        ds = repmat({[]},height(WIN),2);        
         inv_ixs = 0:1;
     case 1
-        rr = repmat({[]},Nw,1);
-        ds = repmat({[]},Nw,1);
+        rr = repmat({[]},height(WIN),1);
+        ds = repmat({[]},height(WIN),1);
         inv_ixs = 0;
     case 0
-        rr = repmat({[]},Nw,1);
-        ds = repmat({[]},Nw,1);        
+        rr = repmat({[]},height(WIN),1);
+        ds = repmat({[]},height(WIN),1);        
         inv_ixs = 1;
 end
 
+%cell array of inputs to partial correlation function
 Da = table2cell(D(:,{res.target_variable, res.target_ident_field, 'subj'}));
-
-%proportional durations for each window
-
-switch(p.Results.use_parallel)
-    case 1
-        poolobj = gcp('nocreate');
-        if isempty(poolobj), poolobj = parpool(p.Results.n_threads); end
-end
 
 %loop over windows
 switch(p.Results.use_parallel)
     case 1
+        Nw = height(WIN);
+        Nr = height(D);
         rx1 = repmat({[]},Nw,1);
         rx2 = repmat({[]},Nw,1);
         not_nan = false(Nw,Nr);
         not_inf = false(Nw,Nr);
         valid_ixs = false(Nw,Nr);
-        samp_ixs = WIN.samp_ixs;
         scales = WIN.scale;
         centers = WIN.center;
         res = p.Results;
+        
 
         parfor w=1:height(WIN)
-            [rx1{w},rx2{w},not_nan(w,:),not_inf(w,:),valid_ixs(w,:)] = calc_rates(PDUR.*samp_ixs(w,:),dt);
+            win = metarate_propdur_windows(we0(:,w),we1(:,w),pdur_times);
+            [rx1{w},rx2{w},not_nan(w,:),not_inf(w,:),valid_ixs(w,:)] = calc_rates(PDUR.*win,dt);
         end
 
         for w=1:height(WIN)
             rr{w,1} = partialcorr_rate(Da(valid_ixs(w,:),:),rx1{w}(valid_ixs(w,:)));
             rr{w,2} = partialcorr_rate(Da(valid_ixs(w,:),:),rx2{w}(valid_ixs(w,:)));
-        end
 
-        for w=1:height(WIN)
             rr{w,1} = add_info(rr{w,1},scales(w),centers(w),not_nan(w,:),not_inf(w,:),res,0);
             rr{w,2} = add_info(rr{w,2},scales(w),centers(w),not_nan(w,:),not_inf(w,:),res,1);         
         end
@@ -284,7 +289,10 @@ switch(p.Results.use_parallel)
 
         RR = {};
         for w=1:height(WIN)
-            [RR{1},RR{2},not_nan,not_inf,valid_ixs] = calc_rates(PDUR.*WIN.samp_ixs(w,:),dt);
+
+            win = metarate_propdur_windows(we0(:,w),we1(:,w),pdur_times);
+
+            [RR{1},RR{2},not_nan,not_inf,valid_ixs] = calc_rates(PDUR.*win,dt);
 
             for i=1:length(inv_ixs)
                 rx = partialcorr_rate(Da(valid_ixs,:),RR{inv_ixs(i)+1}(valid_ixs));
@@ -310,8 +318,8 @@ end
 
 %% calculate rates from pdur
 function [rates_proper,rates_inverse,not_nan,not_inf,valid_ixs] = calc_rates(pdur,dt)
-PDUR_sum = nansum(pdur,2);                %#ok<NANSUM> %sum of proportional durs in window
-PDUR_per = sum(~isnan(pdur),2)*dt;        %actual period of time in window
+PDUR_sum = nansum(pdur,2);                              %#ok<NANSUM> %sum of proportional durs in window
+PDUR_per = sum(~isnan(pdur) & ~isinf(pdur),2)*dt;        %actual period of time in window
 
 rates_proper = PDUR_sum ./ PDUR_per;
 rates_inverse = 1./rates_proper;
@@ -345,6 +353,7 @@ R.rate_measure = res.unit;
 R.target = {''}; %fill in later
 R.scale = scale;
 R.center = center;
+R.window_method = res.window_method;
 R.data_selection = res.data_selection;
 R.target_exclusion = res.target_exclusion;
 R.inverse_rate = inversion;
