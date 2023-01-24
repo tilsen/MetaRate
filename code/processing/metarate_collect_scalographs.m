@@ -8,10 +8,8 @@ ff = rdir([h.regress_dir 'scalogram_*.mat']);
 
 T = [];
 for i=1:length(ff)
-    status_str = status('progress_full',i,length(ff));
+    status_str = status('progress_full',i,length(ff)); %#ok<NASGU> 
     X = load(ff(i).name);
-    target = regexp(ff(i).name,'_target\[(\w+)\]_','tokens','once');
-    X.T.target = repmat(target,height(X.T),1);
     T = [T; X.T];
 end
 status('reset');
@@ -20,19 +18,30 @@ T.sizes = T.scale; T.scale = [];
 
 %utility functions:
 
-PAR.RHO = grpstats(T,{'target','rate_measure','inverse_rate','data_selection','target_exclusion'},{'min','max'},'Datavars','rho');
-PAR.targets = unique(T.target);
-PAR.rate_measures = unique(T.rate_measure);
-PAR.inverse_rate = unique(T.inverse_rate);
-PAR.target_exclusion = unique(T.target_exclusion);
-PAR.data_selection = unique(T.data_selection);
+sc_pars_in = {'target','rate_measure','inverse_rate','data_selection','window_method','target_exclusion'};
+sc_pars_out = {'target','unit','inversion','datasel','winmethod','exclusion'};
 
-PAR.index = @(T,targets,rate_measures,inverse_rate,target_exclusion,data_selection)...
-    T(ismember(T.target,targets) &...
-    ismember(T.rate_measure,rate_measures) & ...
-    ismember(T.inverse_rate,inverse_rate) & ...
-    ismember(T.target_exclusion,target_exclusion) & ...
-    ismember(T.data_selection,data_selection),:);
+for i=1:length(sc_pars_out)
+    if ~strcmp(sc_pars_out{i},sc_pars_in{i})
+        T.(sc_pars_out{i}) = T.(sc_pars_in{i});
+        T.(sc_pars_in{i}) = [];
+    end
+end
+
+PAR.RHO = grpstats(T,sc_pars_out,{'min','max'},'Datavars','rho');
+
+for i=1:length(sc_pars_out)
+    PAR.(sc_pars_out{i}) = unique(T.(sc_pars_out{i}));
+end
+
+PAR.index = @(T,target,unit,inversion,datasel,winmethod,exclusion)...
+    T( ...
+    ismember(T.target,target) &...
+    ismember(T.unit,unit) & ...
+    ismember(T.inversion,inversion) & ...
+    ismember(T.datasel,datasel) & ...
+    ismember(T.winmethod,winmethod) & ...
+    ismember(T.exclusion,exclusion),:);
 
 PAR.select = @(T,name)strjoin(unique(T.(name)),',');
 

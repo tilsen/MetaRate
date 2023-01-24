@@ -23,6 +23,7 @@ valid_data_selections = {
     'bytarget'};
 
 valid_window_methods = {
+    'centered'
     'beginanchored' 
     'endanchored'
     'example1' 
@@ -119,7 +120,7 @@ switch(res.window_method)
 
     %extends the window edges to compensate for exclusion (d/n make sense with inclusion)   
     case 'extendwin'
-        scale_range = [0.5 1.0];
+        scale_range = [0.05 1.0];
         center_range = [-0.5 0.5];  
 
     %extends range to compensate for exclusion and shifts center if
@@ -127,10 +128,15 @@ switch(res.window_method)
     case 'adaptivewin' 
         scale_range = [0.5 floor(max(TR.utt_dur)/0.5)*0.5];
         center_range = [-0.5 0.5];
+        res.scale_step = 0.200;
+        res.center_step = 0.100;
 
 end
 
-WIN = metarate_construct_windows(p.Results.data_selection,scale_range,center_range);
+WIN = metarate_construct_windows(p.Results.data_selection, ...
+    scale_range,center_range, ...
+    'scale_step',res.scale_step, ...
+    'center_step',res.center_step);
 
 %% prepare data table
 

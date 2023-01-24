@@ -3,7 +3,7 @@ function [] = metarate_scalographic_analysis_batch()
 h = metarate_helpers;
 
 overwrite = true;
-use_parallel = true;
+use_parallel = false;
 
 switch(use_parallel)
     case 1
@@ -20,8 +20,9 @@ targets = TARGS.target;
 %% analysis parameters
 R.unit = {'phones' 'words' 'sylbs' 'moras' 'artics'};
 R.target_exclusion = [true false];
-R.window_method = {'extendwin','centered','adaptivewin','beginanchored','endanchored'};
-R.data_selection = {'bytarget','bywindow'};
+%R.window_method = {'extendwin','centered','adaptivewin','beginanchored','endanchored'};
+R.window_method = {'extendwin','adaptivewin'};
+R.data_selection = {'bytarget' 'bywindow'};
 R.inverse_rate = 2; %(0: proper; 1: inverse; 2: do both in scalograph loop to save time)
 
 %---table of analysis parameter combinations
@@ -48,6 +49,9 @@ P = P(~(ismember(P.window_method,{'beginanchored','endanchored'}) & ~ismember(P.
 % dont use adaptive windows with by-target data selection strategy:
 P = P(~(ismember(P.window_method,{'adaptivewin'}) & ismember(P.data_selection,{'bytarget'})),:);
 
+% everything else only use by-target data selection strategy:
+P = P(~(~ismember(P.window_method,{'adaptivewin'}) & ismember(P.data_selection,{'bywindow'})),:);
+
 %%
 load([h.data_dir 'metarate_propdurs.mat'],'TR'); %load by-trial phase velocities
 for i=1:length(targets)
@@ -55,8 +59,8 @@ for i=1:length(targets)
     load_new_target = true;
     for j=1:height(P)
         
-        outfile = sprintf('scalogram_target[%s]_unit[%s]_targexc[%i]_datasel[%s].mat',...
-            targets{i}, P.unit{j},double(P.target_exclusion(j)),P.data_selection{j});        
+        outfile = sprintf('scalogram_target[%s]_unit[%s]_targexc[%i]_datasel[%s]_win[%s].mat',...
+            targets{i}, P.unit{j},double(P.target_exclusion(j)),P.data_selection{j},P.window_method{j});        
         outfilepath = [h.regress_dir outfile];
         
         if ~overwrite && exist(outfilepath,'file'), continue; end
@@ -69,7 +73,6 @@ for i=1:length(targets)
         n = (height(P)*(i-1))+j;
         status_str = status('progress_full',n,length(targets)*height(P),['processing ' outfile]); %#ok<NASGU>
                 
-        tic
         T = metarate_scalographic_analysis(TR,D,...
             'unit',P.unit{j},...
             'target_exclusion',P.target_exclusion(j),...
@@ -77,7 +80,6 @@ for i=1:length(targets)
             'data_selection',P.data_selection{j},...
             'inverse_rate',P.inverse_rate(j), ...
             'use_parallel',use_parallel);
-        toc
         
         par = table2struct(P(j,:));
         par.target = targets{i};

@@ -6,7 +6,7 @@ h = metarate_helpers();
 load([h.data_dir 'metarate_partialcorr_scalographs.mat'],'T');
 load([h.figures_dir 'analysis_comparisons.mat'],'D');
 
-D = D(ismember(D.data_selection,'bytarget'),:);
+D = D(ismember(D.winmethod,'extendwin'),:);
 D = D(D.exclusion==1,:);
 D = sortrows(D,'avg_rho','descend');
 
@@ -40,12 +40,14 @@ end
 C.symb{1} = D.symb{find(ismember(D.target,'consonants_simplexcodas'),1,'first')};
 
 %%
-ax = stf([2 1],[0.065 0.01 0.01 0.075],[0.01 0.05]);
+ax = stf([2 1],[0.07 0.01 0.01 0.085],[0.01 0.035],'aspect',1.5);
 
 %----
 axes(ax(1));
 hb = comparison_barplot(D,'avg_rho','parent',ax(1),...
-        'hatchfill',true,'hatchspacing',0.02,'orientation','vertical','fontsize',18);
+        'hatchfill',true,'hatchspacing',0.02, ...
+        'orientation','vertical','textrotation',0, ...
+        'fontsize',h.fs(end)+4,'offsetcycle',3);
 
 ax(1).YLim = [0 ax(1).YLim(2)];
 set(hb.labh,'FontSize',h.fs(2));
@@ -54,11 +56,14 @@ hb.labh.Position(1)=hb.labh.Position(1)-0.5;
 xlims = getlims(ax,'x');
 set(ax,'xlim',xlims);
 
-ax_tleg = axes('position',[.60 .85 .395 .145]);
-targets_legend(D,ax_tleg,'fontsize',h.fs(end)+1);
+targlegw = 0.30;
+
+ax_tleg = axes('position',[0.995-targlegw .83 targlegw .165]);
+targets_legendr(D,ax_tleg,'fontsize',h.fs(end)+4);
+
 ax_rleg = rates_legend(D,hb.bh,h,'north',3,h.fs(end)+2);
 ax_rleg.Position(2) = sum(ax_tleg.Position([2 4]))-ax_rleg.Position(4);
-ax_rleg.Position(1) = ax_tleg.Position(1)-ax_rleg.Position(3)-0.015;
+ax_rleg.Position(1) = ax_tleg.Position(1)-ax_rleg.Position(3)-0.01;
 
 %----
 axes(ax(2));

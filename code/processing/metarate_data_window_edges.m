@@ -9,57 +9,38 @@ if nargin==2, method = ''; end
 we0 = D.tanch + W.edges(:,1)';
 we1 = D.tanch + W.edges(:,2)';
 
-%% calculate excluded dur for each window for some methods
+%% methods with window adjustment
 switch(method)
-    case {'extendwin','adaptivewin'}
+    case {'extendwin'} %extend window
 
-        excluded_dur = (we1-we0) - ...
-            max(0,D.rateunit_t0-we0) - ...
-            max(0,we1-D.rateunit_t1);
-
-end
-
-%% do extension for some methods
-switch(method)
-    case {'extendwin','adaptivewin'}
+        overlap_dur = ((we0<D.rateunit_t1) & (we1>=D.rateunit_t0)) .* (min(we1,D.rateunit_t1)-max(we0,D.rateunit_t0));
 
         %overlap conditions for left/right edge adjustments:
         ext0 = (we0 > D.rateunit_t0) & (we0 < D.rateunit_t1);
         ext1 = (we1 > D.rateunit_t0) & (we1 < D.rateunit_t1);
 
-        we0 = ext0.*(D.rateunit_t0 - excluded_dur/2) + (1-ext0).*(we0-excluded_dur/2); 
-        we1 = ext1.*(D.rateunit_t1 + excluded_dur/2) + (1-ext1).*(we1+excluded_dur/2); 
+        we0 = ext0.*(D.rateunit_t0 - overlap_dur/2) + (1-ext0).*(we0-overlap_dur/2); 
+        we1 = ext1.*(D.rateunit_t1 + overlap_dur/2) + (1-ext1).*(we1+overlap_dur/2);         
 
-end
+    case {'adaptivewin'}
 
-%% adaptive window
-switch(method)
+        %first, slide to utterance boundary if window is out of range:
+        we0_d = max(0,D.utt_t0-we0); %positive for out-of-range edges
+        we1_d = max(we1-D.utt_t1,0); %positive for out-of-range edges
 
-    case 'adaptivewin'
-
-        utt_t0 = repmat(D.utt_t0,1,size(we0,1));
-        utt_t1 = repmat(D.utt_t1,1,size(we0,1));
-
-        %determine whether extended window extends beyond utterance edges:
-        we0_d = max(0,utt_t0-we0); %positive for out-of-range edges
-        we1_d = max(we1-utt_t1,0); %positive for out-of-range edges
-
-        % even if the window is larger than available utterance,
-        % d/n matter what order the adjustments are done, b/c this method d/n
-        % exclude data on the basis of out of range windows:
         we0 = we0+we0_d-we1_d;
-        we1 = we1+we0_d-we1_d;
-       
-        %in case shift caused overlap, we extend asymmetrically:
+        we1 = we1+we0_d-we1_d;     
 
-        %overlap conditions for left/right edge adjustments:
-        ext0 = (we0 >= D.rateunit_t0) & (we0 < D.rateunit_t1);
-        ext1 = (we1 >= D.rateunit_t0) & (we1 < D.rateunit_t1);
+        %second, extend away from closest boundary if overlap
+        overlap_dur = ((we0<D.rateunit_t1) & (we1>=D.rateunit_t0)) .* (min(we1,D.rateunit_t1)-max(we0,D.rateunit_t0));
+        isov = overlap_dur>0;
 
-        overlap_dur = max(0,we0-D.rateunit_t0).*ext0 + max(0,D.rateunit_t1-we1).*ext1;        
+        %closer to utterance beginning
+        closest = (we0 - D.utt_t0) > (D.utt_t1 - we1);
 
-        we0 = ext0.*(D.rateunit_t0 - overlap_dur) + (1-ext0).*we0; 
-        we1 = ext1.*(D.rateunit_t1 + overlap_dur) + (1-ext1).*we1; 
+        we0 = isov.*(   (min(D.rateunit_t0,we0)-overlap_dur).*closest +  we0                                .*(1-closest)   ) + (1-isov).*we0;
+        we1 = isov.*(    we1                                .*closest + (max(D.rateunit_t1,we1)+overlap_dur).*(1-closest)   ) + (1-isov).*we1;            
+
 
 end
 

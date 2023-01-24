@@ -2,33 +2,31 @@ function [panlab] = metarate_labels(G,labtype)
 
 targets = metarate_targets;
 
-trg_symb = targets.symb(ismember(targets.target,G.target));
+%trg_symb = targets.symb(ismember(targets.target,G.target));
+trg_symb = @(x)targets.symb{ismember(targets.target,x)};
+
+exc_strs = {'inc.)','exc.)'};
+exc_str = @(x)exc_strs{x+1};
+
+inv_strs = {'(prop.','(inv.'};
+inv_str = @(x)inv_strs{x+1};
+
+paren = @(x)['(' x ')'];
+
+ratestr = @(x)[x{:} ' rate '];
 
 switch(labtype)
     case 'panel'
-        panlab = strjoin([...
-            trg_symb,...
-            ' \sim ',...
-            [G.rate_meas{:} ' rate']], ' ');
+        panlab = strtrim(append(trg_symb(G.target),' \sim ', ratestr(G.unit)));
 
-    case 'panel1'
-        inv_strs = {'(prop.','(inv.'};
-        exc_strs = {'inc.)','exc.)'};
-        panlab = strjoin([...
-            G.target,...
-            ['(' G.data_selection{:} ')'],...
-            ' \sim ',...
-            [G.rate_meas{:} ' rate'],...
-            [inv_strs{G.inverse_rate+1} ',' exc_strs{G.target_exclusion+1}]], ' ');        
+    case 'panel1'             
+        panlab = strtrim(append(G.target,paren(G.datasel),' \sim ',ratestr(G.unit),inv_str(G.inversion),', ',exc_str(G.exclusion)));   
 
     otherwise
-        panlab = strjoin([...
-            G.target,...
-            ' \sim ',...
-            [G.rate_meas{:} ' rate']], ' ');        
+        panlab = strtrim(append(G.target,' \sim ',rate_str(G.unit)));   
 end
 
-switch(G.inverse_rate)
+switch(G.inversion)
     case 0
         panlab = regexprep(panlab,'phones rate','ph/s');
         panlab = regexprep(panlab,'sylbs rate','\\sigma/s');
