@@ -6,26 +6,23 @@ h = metarate_helpers();
 load([h.data_dir 'metarate_partialcorr_scalographs.mat'],'T');
 
 %define set/comparison (target, unit, inversion, exclusion, selection)
-datasel = {'bytarget'};
-unit = {'phones'};
-inversion = 0;
-exclusion = 1;
+S.winmethod = 'extendwin';
+S.unit = 'phones';
+S.inversion = 0;
+S.exclusion = 1;
+S.datasel = 'bytarget';
+S.target = 'consonants_simplexcodas';
 
-G = {};
-G{end+1} = { {'consonants_simplexcodas'} unit inversion exclusion datasel};
-G{end+1} = { {'consonants_simplexonsets'} unit inversion exclusion datasel};
-G{end+1} = { {'consonants_simplexcodas'} unit inversion exclusion datasel;
-             {'consonants_simplexonsets'} unit inversion exclusion datasel};
-
-G{end+1} = { {'vowels_stress1'} unit inversion exclusion datasel};
-G{end+1} = { {'vowels_stress0'} unit inversion exclusion datasel};
-G{end+1} = { {'vowels_stress1'} unit inversion exclusion datasel;
-             {'vowels_stress0'} unit inversion exclusion datasel};
+S = repmat(S,4);
+S(1).target = 'consonants_simplexcodas';
+S(2).target = 'consonants_simplexonsets';
+S(3).target = 'vowels_stress1';
+S(4).target = 'vowels_stress0';
 
 climsets = {[1 2],3,[4 5],6};
 colorbars = [0 1 1 0 1 1];
 
-G = prep_subsets(G);        
+G = prep_subsets({S(1),S(2),S(1:2),S(3),S(4),S(3:4)});        
 SC = prep_scalographs(T,G,'climsets',climsets); 
 
 for i=1:length(SC)

@@ -1,9 +1,28 @@
 function [status_str] = status(status_str,varargin)
 
-if nargin==0, status_str='clear'; end
-
 status_exists = evalin('caller','exist(''status_str'',''var'')');
 
+%% no input: clear:
+if nargin==0
+    if status_exists
+        len_status = evalin('caller','length(status_str)');
+        fprintf(repmat('\b',1,len_status));
+        evalin('caller','clear(''status_str'')');        
+    end
+    return;
+end
+
+%% bare string input
+if nargin==1 && ~ismember(status_str,{'clear' 'reset'})
+    if status_exists
+        len_status = evalin('caller','length(status_str)');
+        fprintf(repmat('\b',1,len_status));
+    end
+    fprintf(status_str);
+    return;
+end
+
+%% other modes
 if status_exists
     len_status = evalin('caller','length(status_str)');
 else
@@ -77,13 +96,15 @@ switch(status_str)
         fprintf([repmat('\b',1,len_status) '%s'],status_str);   
 
     case 'progress_full'
-        hdrs = strjust(cell2mat(pad({descr_str;iter_hdr;time_hdr;elap_hdr;est_hdr})),'right');
-        vals = strjust(cell2mat(pad({''; iter_str; time_str; elap_str; est_str})),'left');
+        hdrs = strjust(cell2mat(pad({iter_hdr;time_hdr;elap_hdr;est_hdr})),'right');
+        vals = strjust(cell2mat(pad({iter_str; time_str; elap_str; est_str})),'left');
         lines = cellstr([hdrs repmat(' ',size(hdrs,1),1) vals]);
+        lines = [{descr_str}; lines];
         status_str = strjoin(lines,'\n');
-        fprintf([repmat('\b',1,len_status) '%s'],status_str);                
+        fprintf([repmat('\b',1,len_status) '%s'],status_str);              
     
 end
 
 end
+
 

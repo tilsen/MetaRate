@@ -6,42 +6,43 @@ h = metarate_helpers();
 load([h.data_dir 'metarate_partialcorr_scalographs.mat'],'T');
 load([h.figures_dir 'analysis_comparisons.mat'],'D');
 
-D = D(ismember(D.data_selection,'bytarget'),:);
-D = D(D.exclusion==1,:);
+D = tabindex(D,'winmethod','extendwin','exclusion',1);
 
 D = analysis_differences(...
     D(ismember(D.ratio,'proper'),:),...
     D(ismember(D.ratio,'inverse'),:));
 
-
 %define set/comparison (target, unit, inversion, exclusion, selection)
-datasel = {'bytarget'};
-target = {'consonants_simplexcodas'};
-unit = {'phones'};
-exclusion = 1;
+S.target = 'consonants_simplexcodas';
+S.unit = 'phones';
+S.datasel = 'bytarget';
+S.inversion = 0;
+S.winmethod = 'extendwin';
+S.exclusion = 1;
 
-G{1} = { target unit 0 exclusion datasel};
-G{2} = { target unit 1 exclusion datasel};
-G{3} = { target unit 0 exclusion datasel;
-         target unit 1 exclusion datasel};
-
-climsets = {[1 2],[3]};
+S = repmat(S,2,1);
+S(2).inversion = 1;
+ 
+climsets = {[1 2],3};
 colorbars = [0 1 1];
-
-G = prep_subsets(G);        
+G = prep_subsets({S(1), S(2), S});        
 SC = prep_scalographs(T,G,'climsets',climsets); 
 
 %%
-ax = stf([1 1 1; 2 3 4],[0.065 0.075 0.05 0.05],[0.05 0.10]);
+ax = stf([1 1 1; 2 3 4],[0.07 0.075 0.05 0.05],[0.05 0.10],'aspect',1.5);
 
 %---comparison by target
-hb = comparison_barplot(D,'d_avg_rho','parent',ax(1),'hatchfill',false,'fontsize',18);
+hb = comparison_barplot(D,'d_avg_rho','parent',ax(1), ...
+    'hatchfill',false,'fontsize',h.fs(end)+4,'textrotation',0);
+
 axrescaley([0.075 0.075],ax(1));
 
 set(hb.labh,'rotation',90,'hori','center','fontsize',h.fs(3));
 
-ax_tleg = axes('position',[.60 .820 .395 .175]);
-targets_legend(D,ax_tleg,'fontsize',h.fs(end)+2);
+axw = 0.30; axh = 0.165;
+ax_tleg = axes('position',[0.995-axw 0.995-axh axw axh]);
+targets_legendr(D,ax_tleg,'fontsize',h.fs(end)+2);
+
 
 units = unique(D.unit,'stable');
 ixs = cellfun(@(c,d)find(ismember(D.unit,c),1,'first'),units);

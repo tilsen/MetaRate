@@ -5,7 +5,7 @@ h = metarate_helpers();
 
 load([h.data_dir 'metarate_segmentdata.mat'],'TR');
 
-units = {'artics' 'words' 'sylbs' 'phones' 'moras'};
+units = h.units;
 
 dt = 1/h.frame_rate;
 
@@ -28,8 +28,8 @@ for j=1:length(units)
 
         if j==1, TR.frt{i} = single(frpnts); end %save time-points vector
 
-        TR.([units{j} '_ufr_prop_dur']){i} = single(prop_dur);
-        TR.([units{j} '_ufr_map']){i} = uint8(UIX); %max of 256 units...       
+        TR.([units{j} '_pdur']){i} = single(prop_dur);
+        TR.([units{j} '_pdur_map']){i} = uint8(UIX); %max of 256 units...       
         
     end 
 end

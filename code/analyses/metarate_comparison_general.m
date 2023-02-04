@@ -12,54 +12,17 @@ scale_slice = 0.5;  %table stores constant scale slice at this value
 center_slice = 0.0; %table stores constant center slice at this value 
 
 load([h.data_dir 'metarate_partialcorr_scalographs.mat'],'T');
-PAR = T.Properties.UserData;
 
-TARGS = metarate_targets;
-
-%define set/comparison (target, unit, inversion, exclusion, selection)
-
+%parameters will be sorted in this order:
 sc_pars = {'target','unit','inversion','datasel','winmethod','exclusion'};
 
-for i=1:length(sc_pars)
-    P.(sc_pars{i}) = unique(T.(sc_pars{i}));
+D = params_from_scalographs(T);
+
+G=[];
+for i=1:length(D)
+    G(i).subset = D(i);
 end
-
-G = {};
-D = [];
-
-[p1,p2,p3,p4,p5,p6] = ndgrid(P.(sc_pars{1}),P.(sc_pars{2}),P.(sc_pars{3}),P.(sc_pars{4}),P.(sc_pars{5}),P.(sc_pars{6}));
-
-PP = {p1(:),p2(:),p3(:),p4(:),p5(:),p6(:)};
-
-for i=1:length(sc_pars)
-    D.(sc_pars{i})=PP{i};
-end
-
-D = struct2table(D);
-
-inversion_strs = {'proper' 'inverse'};
-D.ratio = inversion_strs(D.inversion+1)';
-
-[~,ixa] = ismember(D.target,TARGS.target);
-D.description = TARGS.description(ixa);
-D.descr = TARGS.descr(ixa);
-D.symb = TARGS.symb(ixa);
-
-for i=1:height(D)
-    status_str = status('progress_full',i,height(D),'checking subsets'); %#ok<NASGU> 
-    Tx = PAR.index(T,D.target{i},D.unit{i}, D.inversion(i), D.datasel{i},D.winmethod{i},D.exclusion(i));    
-    D.num(i) = height(Tx);
-end
-status('reset');
-
-D = D(D.num>0,:);
-G = table2cell(D(:,sc_pars));
-G = arrayfun(@(c){G(c,:)},(1:size(G,1))');
-
-G = prep_subsets(G);  
 SC = prep_scalographs(T,G); 
-
-D = table2struct(D);
 
 for i=1:length(SC)
 
@@ -103,11 +66,10 @@ end
 status('reset');
 
 D = struct2table(D);
-%D = sortrows(D,{'exclusion' 'target' 'unit' 'ratio'},{'ascend' 'ascend' 'descend' 'descend'});
 D = sortrows(D,sc_pars);
 
 %---default colors by units:
-units = {'phones' 'sylbs' 'words' 'moras' 'artics'};
+units = h.units;
 colors = lines(numel(units));
 for i=1:length(units)
     ixs = ismember(D.unit,units{i});
@@ -115,7 +77,18 @@ for i=1:length(units)
 end
 
 D.hatch = false(height(D),1);
-D.hatch(ismember(D.ratio,{'inverse'})) = true;
+D.hatch(D.inversion==1) = true;
+
+% target symbols
+TARG = metarate_targets;
+[~,ia] = ismember(D.target,TARG.target);
+D.symb = TARG.symb(ia);
+D.descr = TARG.descr(ia);
+D.description = TARG.description(ia);
+
+D.ratio = repmat({''},height(D),1);
+D.ratio(D.inversion==0) = {'proper'};
+D.ratio(D.inversion==1) = {'inverse'};
 
 %%
 

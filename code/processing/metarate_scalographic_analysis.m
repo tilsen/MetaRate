@@ -1,16 +1,17 @@
 function [R,ds] = metarate_scalographic_analysis(TR,D,varargin)
 
 dbstop if error;
-h = metarate_helpers();
 p = inputParser;
 
 def_data_selection = 'bytarget';
 def_window_method = 'centered';
 def_inverse_rate = 2;
 def_target_exclusion = true;
-def_target_ident_field = 'phone';
+def_target_ident_field = 'phones';
 def_unit = 'phones';
 def_frame_per = 1e-3;
+def_scale_range = nan;
+def_center_range = nan;
 def_center_step = 0.025;
 def_scale_step = 0.050;
 def_target_variable = 'dur';
@@ -31,21 +32,16 @@ valid_window_methods = {
     'extendwin'
     'adaptivewin'};
 
-valid_units = {
-    'phones' 
-    'moras' 
-    'sylbs' 
-    'words' 
-    'artics'};
-
 addRequired(p,'TR',@(x)istable(x));
 addRequired(p,'D',@(x)istable(x));
 addParameter(p,'data_selection',def_data_selection,@(x)ismember(x,valid_data_selections));
 addParameter(p,'inverse_rate',def_inverse_rate,@(x)ismember(x,[0 1 2]));
 addParameter(p,'target_exclusion',def_target_exclusion,@(x)islogical(x));
 addParameter(p,'window_method',def_window_method,@(x)ismember(x,valid_window_methods));
-addParameter(p,'unit',def_unit,@(x)ismember(x,valid_units));
+addParameter(p,'unit',def_unit,@(x)validate_unit(x,tabcols(TR),tabcols(D)));
 addParameter(p,'frame_per',def_frame_per);
+addParameter(p,'center_range',def_center_range);
+addParameter(p,'scale_range',def_scale_range);
 addParameter(p,'center_step',def_center_step);
 addParameter(p,'scale_step',def_scale_step);
 addParameter(p,'target_variable',def_target_variable);
@@ -68,12 +64,10 @@ switch(p.Results.use_parallel)
         if isempty(poolobj), poolobj = parpool(p.Results.n_threads); end %#ok<NASGU> 
 end
 
-D = add_rate_unit_info(D,p);
-
-%add utterance duration info
-TR.utt_t0 = cellfun(@(c)c(2),TR.words_t0);
-TR.utt_t1 = cellfun(@(c)c(end-1),TR.words_t1);
-TR.utt_dur = TR.utt_t1-TR.utt_t0;
+%% add rate unit times:
+D.rateunit_t0 = D.([p.Results.unit '_t0']);
+D.rateunit_t1 = D.([p.Results.unit '_t1']);            
+D.rateunit_dur = D.rateunit_t1-D.rateunit_t0;
 
 %% check for compatibility of data selection method
 switch(p.Results.data_selection)
@@ -85,7 +79,7 @@ switch(p.Results.data_selection)
         end
 end
 
-%% calculate window scales/centers for different data selection methods
+%% define window scales/centers for different data selection methods
 switch(res.window_method)
 
     %centered method (default)
@@ -133,8 +127,16 @@ switch(res.window_method)
 
 end
 
+%overwrite scale/center range parameters if not specified
+if isnan(res.scale_range)
+    res.scale_range = scale_range;
+end
+if isnan(res.center_range)
+    res.center_range = center_range;
+end
+
 WIN = metarate_construct_windows(p.Results.data_selection, ...
-    scale_range,center_range, ...
+    res.scale_range,res.center_range, ...
     'scale_step',res.scale_step, ...
     'center_step',res.center_step);
 
@@ -143,7 +145,8 @@ WIN = metarate_construct_windows(p.Results.data_selection, ...
 %add trial indices to data table:
 [~,D.TRix] = ismember(D.fname,TR.fname);
 
-D = D(:,{'t0' 't1' 'rateunit_t0' 'rateunit_t1' 'utt_t0' 'utt_t1' 'TRix' 'phone' 'subj' 'dur'});
+D = D(:,{'t0' 't1' 'rateunit_t0' 'rateunit_t1' 'utt_t0' 'utt_t1' ...
+    'TRix' res.target_ident_field 'subj' res.target_variable});
 
 %round to avoid precision errors
 timef = {'t0' 't1' 'rateunit_t0' 'rateunit_t1' 'utt_t0' 'utt_t1'};
@@ -172,7 +175,7 @@ end
 %% get proportional duration array
 
 %fieldnames specific to rate measure units:
-f_pdur = [p.Results.unit '_ufr_prop_dur'];
+f_pdur = [p.Results.unit '_pdur'];
 
 %times of frames (for data rows): 
 FRT = TR.frt(D.TRix);
@@ -247,17 +250,18 @@ pdur_times = repmat(pdur_times,height(D),1);
 
 switch(p.Results.inverse_rate)
     case 2
-        rr = repmat({[]},height(WIN),2);
-        ds = repmat({[]},height(WIN),2);        
+        rr = repmat({[]},height(WIN),2);    
         inv_ixs = 0:1;
     case 1
         rr = repmat({[]},height(WIN),1);
-        ds = repmat({[]},height(WIN),1);
         inv_ixs = 0;
     case 0
-        rr = repmat({[]},height(WIN),1);
-        ds = repmat({[]},height(WIN),1);        
+        rr = repmat({[]},height(WIN),1);      
         inv_ixs = 1;
+end
+
+if p.Results.return_datasets
+    ds = cell(height(WIN),1);
 end
 
 %cell array of inputs to partial correlation function
@@ -275,8 +279,7 @@ switch(p.Results.use_parallel)
         valid_ixs = false(Nw,Nr);
         scales = WIN.scale;
         centers = WIN.center;
-        res = p.Results;
-        
+        res = p.Results;        
 
         parfor w=1:height(WIN)
             win = metarate_propdur_windows(we0(:,w),we1(:,w),pdur_times);
@@ -302,17 +305,16 @@ switch(p.Results.use_parallel)
 
             for i=1:length(inv_ixs)
                 rx = partialcorr_rate(Da(valid_ixs,:),RR{inv_ixs(i)+1}(valid_ixs));
+                rr{w,i} = add_info(rx,WIN.scale(w),WIN.center(w),not_nan,not_inf,res,inv_ixs(i));                
+            end
 
-                rr{w,i} = add_info(rx,WIN.scale(w),WIN.center(w),not_nan,not_inf,res,inv_ixs(i));
-
-                if p.Results.return_datasets
-                    ds{2*(w-1)+i} = {...
-                        D.(res.target_variable)(valid_ixs),...
-                        rates_proper(valid_ixs),...
-                        D.(res.target_ident_field)(valid_ixs),...
-                        D.subj(valid_ixs)};
-                end
-                
+            if p.Results.return_datasets
+                ds{w} = D(:,{res.target_variable res.target_ident_field 'subj'});
+                ds{w}.valid_ixs = valid_ixs;
+                ds{w}.not_nan = not_nan;
+                ds{w}.not_inf = not_inf;
+                ds{w}.rate_proper = RR{1};
+                ds{w}.rate_inverse = RR{2};
             end
 
         end
@@ -336,33 +338,36 @@ valid_ixs = not_nan & not_inf;
 end
 
 %%
-function [D] = add_rate_unit_info(D,p)
+function [valid] = validate_unit(unit,segf,dataf)
+valid = ...
+    (ismember([unit '_t0'],dataf) & ismember([unit '_t1'],dataf));
 
-switch(p.Results.unit)
-    case 'phones'
-        D.rateunit_t0 = D.t0;
-        D.rateunit_t1 = D.t1;
-    otherwise
-        D.rateunit_t0 = D.([p.Results.unit(1:end-1) '_t0']);
-        D.rateunit_t1 = D.([p.Results.unit(1:end-1) '_t1']);
+if ~valid
+    fprintf('ERROR: containing rate unit times must be specified in target data table\n');
+    return;
 end
 
-D.rateunit_dur = D.rateunit_t1-D.rateunit_t0;
+valid = (ismember([unit '_pdur'],segf));
 
+if ~valid
+    fprintf(['ERROR: utterance segmentation table must contain field of ' ...
+        'proportional durations named %s_pdur\n'],unit);
+    return;
 end
 
+end
 
 %%
 function [R] = add_info(R,scale,center,not_nan,not_inf,res,inversion)
 
-R.rate_measure = res.unit;
-R.target = {''}; %fill in later
+R.unit = res.unit;
+R.target = res.target_ident_field;
 R.scale = scale;
 R.center = center;
-R.window_method = res.window_method;
-R.data_selection = res.data_selection;
-R.target_exclusion = res.target_exclusion;
-R.inverse_rate = inversion;
+R.winmethod = res.window_method;
+R.datasel = res.data_selection;
+R.exclusion = res.target_exclusion;
+R.inversion = inversion;
 R.N_tokens = numel(not_nan);
 R.N_inf = sum(~not_inf);
 R.N_nan = sum(~not_nan);

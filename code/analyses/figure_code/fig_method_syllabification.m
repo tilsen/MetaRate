@@ -1,4 +1,4 @@
-function [] = fig_syllabification_method()
+function [] = fig_method_syllabification()
 
 %parses words/segments into syllables (treats sp as syllables)
 
@@ -84,7 +84,7 @@ for i=1:length(ff)
     text(min(xlim)-0.1,i,ff_labs{i},'hori','right','fontsize',h.fs(2)-2);
 end
 
-ST_matrix_gridlines(ax(1),'k');
+matrix_gridlines(ax(1),'k');
 set(gca,'XTick',[],'YTick',[]);
 
 %---------------
@@ -186,7 +186,7 @@ T.unsyllabified = true(1,N);
 T.new_sylb = nan(1,N);
 T.phone = TR.phones{i};
 T.son1 = TR.phones_son1{i};
-T.wix = TR.phones_word_ix{i};
+T.wix = TR.phones_words_ix{i};
 T.isphone = TR.phones_type{i}>0;
 T.isvowel = TR.phones_type{i}==1;
 T.iscons = TR.phones_type{i}==2;
@@ -206,9 +206,9 @@ T.new_sylb(T.begins_word) = true;
 T.new_sylb(T.isvowel & T.prec_isvowel) = true;
 
 %for each word, determine if one or more sonority peaks (stops=fricatives)
-word_phone_ixs = arrayfun(@(c)find(T.wix==c),unique(T.wix),'un',0);
-for j=1:length(word_phone_ixs)
-    ixs = word_phone_ixs{j};
+words_phones_ixs = arrayfun(@(c)find(T.wix==c),unique(T.wix),'un',0);
+for j=1:length(words_phones_ixs)
+    ixs = words_phones_ixs{j};
     if numel(ixs)>2 && numel(findpeaks([0 T.son1(ixs) 0]))>1
         phones = T.phone(ixs);
         son = T.son1(ixs);
@@ -233,11 +233,11 @@ for j=1:length(word_phone_ixs)
 end
 
 T.sylb = cumsum(T.new_sylb,'omitnan');
-TR.phones_sylb_ix{i} = T.sylb;
+TR.phones_sylbs_ix{i} = T.sylb;
 
 %%
-usylbix = unique(TR.phones_sylb_ix{i}(~isnan(TR.phones_sylb_ix{i})));
-TR.sylbs{i} = arrayfun(@(c)strjoin(TR.phones{i}(ismember(TR.phones_sylb_ix{i},c)),' '),usylbix,'un',0);
+usylbix = unique(TR.phones_sylbs_ix{i}(~isnan(TR.phones_sylbs_ix{i})));
+TR.sylbs{i} = arrayfun(@(c)strjoin(TR.phones{i}(ismember(TR.phones_sylbs_ix{i},c)),' '),usylbix,'un',0);
 TR.sylbs_t0{i} = arrayfun(@(c)TR.phones_t0{i}(find(T.sylb==c,1,'first')),usylbix);
 TR.sylbs_t1{i} = arrayfun(@(c)TR.phones_t1{i}(find(T.sylb==c,1,'last')),usylbix);
 
@@ -265,7 +265,7 @@ end
 %     tr = TR(tr_ixs(ia(i)),:);
 %     wix = find(strcmp(tr.words{:},P.word{i}),1,'first');
 %     phones_ix = ismember(tr.phones_word_ix{:},wix);
-%     sylb_ix = tr.phones_sylb_ix{:}(phones_ix);
+%     sylb_ix = tr.phones_sylbs_ix{:}(phones_ix);
 %     usylb_ix = unique(sylb_ix);
 %     if ~isnan(usylb_ix)
 %         for j=1:length(usylb_ix)

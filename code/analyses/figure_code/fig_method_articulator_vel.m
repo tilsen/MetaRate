@@ -128,6 +128,8 @@ set(ax([1 2 3 5]),'YColor','none');
 ylabel(ax(4),'total sys. vel.','fontsize',h.fs(3));
 xlabel(ax(end),'time (s)','fontsize',h.fs(3));
 
+stfig_panlab(ax(1),'The birch canoe slide on the smooth planks','hori','left','xoff',0,'fontweight','normal');
+
 %%
 h.printfig(mfilename);
 

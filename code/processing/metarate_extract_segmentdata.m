@@ -44,6 +44,8 @@ for i=1:length(files)
     TR(i).phones_t0 = offs(:,1)';
     TR(i).phones_t1 = offs(:,2)';    
     
+
+
 end
 
 TR = TR(~cellfun(@(c)isempty(c),{TR.subj}));

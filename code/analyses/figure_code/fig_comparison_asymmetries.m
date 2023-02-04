@@ -5,8 +5,7 @@ h = metarate_helpers;
 
 load([h.figures_dir 'analysis_comparisons.mat'],'D');
 
-D = D(ismember(D.data_selection,'bytarget'),:);
-D = D(D.exclusion==1,:);
+D = tabindex(D,'winmethod','extendwin','exclusion',1);
 
 %%
 
@@ -56,7 +55,7 @@ legend(ph,legstrs,'fontsize',h.fs(2)+2,'location','southeast','NumColumns',1);
 plabs = {
     {'scale dependence','(center = 0.0 s)'};
     'pre-target - post-target windows'};
-ylabs = {'\rho^{\prime}','\Delta\rho^{\prime}'};
+ylabs = {'r^{\prime}','\Delta r^{\prime}'};
 xlabs = {'window center (s)', 'window size (s)'};
 
 for i=1:length(ax)

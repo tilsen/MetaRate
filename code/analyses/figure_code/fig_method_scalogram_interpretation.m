@@ -1,11 +1,11 @@
-function [] = fig_interpreting_scalograms()
+function [] = fig_method_scalogram_interpretation()
 
 dbstop if error; close all
 h = metarate_helpers;
 
 load([h.data_dir 'metarate_partialcorr_scalographs.mat'],'T');
 UTIL = T.Properties.UserData;
-T = UTIL.index(T,'vowels','phones',0,1,'bytarget');
+T = UTIL.index(T,'vowels','phones',0,'bytarget','centered',1);
 
 H.sigma = h.sigma;
 [Xr,Yr,Zr] = gen_scalogram(T,'rho','smoothing',false','interpolation',false); 
@@ -160,8 +160,8 @@ xlabel(axw,'window center (s)','fontsize',h.fs(3));
 SL.legstr = cellfun(@(c,d){[c ' ' d]},SL.lab,SL.name);
 
 legh = legend(ph(:,2),SL.legstr,'fontsize',h.fs(end),'location','northeast');
-legh.Position(1)=legh.Position(1)-0.025;
-legh.Position(2)=legh.Position(2)+0.35;
+shiftposy(legh,0.30);
+shiftposx(legh,-0.025);
 
 panlabs = {'raw scalogram','smoothed, interpolated scalogram','slices','slice windows'};
 stfig_panlab(ax,panlabs,'xoff',0,'yoff',0.02,'hori','left','fontweight','normal');

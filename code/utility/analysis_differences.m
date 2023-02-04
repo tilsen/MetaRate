@@ -1,7 +1,7 @@
 function [D] = analysis_differences(D1,D2)
 
 %this ensures that conditions are matched
-init_sort_order = {'target' 'unit' 'ratio' 'exclusion' 'data_selection'};
+init_sort_order = {'target' 'unit' 'ratio' 'exclusion' 'datasel'};
 D1 = sortrows(D1,init_sort_order);
 D2 = sortrows(D2,init_sort_order);
 

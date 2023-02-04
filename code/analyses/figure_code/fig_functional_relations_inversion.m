@@ -38,12 +38,8 @@ end
 
 %%
 
-D = D(ismember(D.data_selection,'bytarget'),:);
-D = D(D.exclusion==1,:);
-D = D(ismember(D.unit,{'phones'}),:);
-D = D(ismember(D.target,{'vowels','consonants'}),:);
-
-D = sortrows(D,{'ratio' 'target' 'unit'},{'descend','descend','ascend'});
+D = tabindex(D,'exclusion',1,'winmethod','extendwin','unit','phones','target',{'vowels','consonants'});
+D = sortrows(D,{'inversion' 'target' 'unit'},{'ascend','descend','ascend'});
 
 ls = {'-',':'}';
 D.ls = repmat(ls,height(D)/numel(ls),1);

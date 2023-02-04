@@ -16,21 +16,20 @@ for i=1:length(datasets)
     if exist(outputfile,'file') && ~overwrite_data, continue; end
 
     [R,ds] = metarate_scalographic_analysis(TR,D,...
-        'unit','phones','data_selection',datasets{i},'return_datasets',true);
+        'unit','phones', ...
+        'window_method',datasets{i}, ...
+        'return_datasets',true, ...
+        'data_selection','bytarget');
 
     %{VAR,RATES,TARGS,SUBJS};
 
-    X.dur = ds{1,1};
-    X.rate_prop = ds{1,2};
-    X.rate_inv = ds{2,2};
-    X.targs = ds{1,3};
-    X.subjs = ds{1,4};
-    X = struct2table(X);
+    X = ds{1};
+    X = X(X.valid_ixs,:);
 
     %residualize target variable and rates:
-    lm_dur = fitlm(X,'dur~targs+subjs');
-    lm_prop = fitlm(X,'rate_prop~targs+subjs');
-    lm_inv = fitlm(X,'rate_inv~targs+subjs');
+    lm_dur = fitlm(X,'dur~1+phones+subj');
+    lm_prop = fitlm(X,'rate_proper~1+phones+subj');
+    lm_inv = fitlm(X,'rate_inverse~1+phones+subj');
 
     X.dur_resid = double(lm_dur.Residuals.Raw);
     X.rate_prop_resid = double(lm_prop.Residuals.Raw);

@@ -15,7 +15,7 @@ TR.words_dur = cellfun(@(c,d){d-c},TR.words_t0,TR.words_t1);
 
 %copy these fields from TR
 copyf = {'subj' 'block' 'sent' 'rep' 'rate' 'text'};
-units = {'phones' 'moras' 'sylbs' 'words' 'artics'};
+units = h.units;
 
 D=[];
 c=0;
@@ -31,16 +31,21 @@ for i=1:height(TR)
         c=c+1;
 
         %phones only
-        D(c).phone = phones{j};
+        D(c).phones = phones{j};
         D(c).dur = TR.phones_dur{i}(j);
         D(c).t0 = single(TR.phones_t0{i}(j));
         D(c).t1 = single(TR.phones_t1{i}(j));
-        D(c).ix = uint8(j);        
-        D(c).phone_ix = uint8(j);
+        D(c).tmid = (D(c).t0+D(c).t1)/2;
+        D(c).ix = uint8(j);     
+        D(c).utt_t0 = single(TR.utt_t0(i));
+        D(c).utt_t1 = single(TR.utt_t1(i));           
+        D(c).phones_t0 = D(c).t0;
+        D(c).phones_t1 = D(c).t1;
+        D(c).phones_ix = uint8(j);
 
         %loop over rate units
         for k=2:length(units)
-            ustr = units{k}(1:end-1); %removes plural
+            ustr = units{k}; 
             unit_labs = TR.([units{k}]){i};
             units_t0 = single(TR.([units{k} '_t0']){i});
             units_t1 = single(TR.([units{k} '_t1']){i});
@@ -58,14 +63,11 @@ for i=1:height(TR)
         end
        
         %indices of phones relative to syllable:
-        ix_phones_sylb = find(TR.phones_sylb_ix{i}==D(c).sylb_ix);
-        D(c).sylb_phone_ix = uint8(find(j==ix_phones_sylb));  
+        ix_phones_sylbs = find(TR.phones_sylbs_ix{i}==D(c).sylbs_ix);
+        D(c).sylbs_phones_ix = uint8(find(j==ix_phones_sylbs));  
 
         for k=1:length(copyf), D(c).(copyf{k}) = TR.(copyf{k})(i); end  
         
-        D(c).utt_t0 = single(TR.words_t0{i}(2));
-        D(c).utt_t1 = single(TR.words_t1{i}(end-1));    
-
         D(c).fname = sprintf('%s_B%02i_S%02i_R%02i_%s',D(c).subj{:},D(c).block,D(c).sent,D(c).rep,D(c).rate{:});
         D(c).trcode = sprintf('%s_%02i_%02i_%i_%s',D(c).subj{:},D(c).block,D(c).sent,D(c).rep,D(c).rate{:});
     end
@@ -75,62 +77,62 @@ fprintf('\n');
 D = struct2table(D);
 
 %
-write_vowels(D(ismember(D.phone,PH.label(PH.vow)),:),h,PH);
-write_consonants(D(ismember(D.phone,PH.label(PH.cons)),:),h,PH);
+write_vowels(D(ismember(D.phones,PH.label(PH.vow)),:),h,PH);
+write_consonants(D(ismember(D.phones,PH.label(PH.cons)),:),h,PH);
 
 end
 
 %% vowels table
 function [] = write_vowels(D,h,PH)
-D.sylb_form = D.sylb;
+D.sylbs_form = D.sylbs;
 
 %sorting phones by label length (descending) prevents accidental partial
 %matches in replacement
 PH.len_label = cellfun(@(c)numel(c),PH.label);
 PH = sortrows(PH,'len_label','descend');
 for i=1:height(PH)
-    D.sylb_form = regexprep(D.sylb_form,['(?<=^|\s)' PH.label{i} '(?=$|\s)'],PH.form{i});
+    D.sylbs_form = regexprep(D.sylbs_form,['(?<=^|\s)' PH.label{i} '(?=$|\s)'],PH.form{i});
 end
 
-D.stress = cellfun(@(c)str2double(c),regexp(D.phone,'\d{1}','match','once'));
+D.stress = cellfun(@(c)str2double(c),regexp(D.phones,'\d{1}','match','once'));
 
 save([h.data_dir 'metarate_durdata_vowels.mat'],'D');
 end
 
 %% consonants table
 function [] = write_consonants(D,h,PH)
-D.sylb_form = D.sylb;
+D.sylbs_form = D.sylbs;
 
 %sorting phones by label length (descending) prevents accidental partial
 %matches in replacement
 PH.len_label = cellfun(@(c)numel(c),PH.label);
 PH = sortrows(PH,'len_label','descend');
 for i=1:height(PH)
-    D.sylb_form = regexprep(D.sylb_form,['(?<=^|\s)' PH.label{i} '(?=$|\s)'],PH.form{i});
+    D.sylbs_form = regexprep(D.sylbs_form,['(?<=^|\s)' PH.label{i} '(?=$|\s)'],PH.form{i});
 end
 
 D.onset = false(height(D),1);
 D.coda = false(height(D),1);
 D.nclust = zeros(height(D),1);
 
-D.sylb_forms = regexp(D.sylb_form,' ', 'split');
-D.sylb_num_phones = cellfun(@(c)numel(c),D.sylb_forms);
-D.sylb_vowel_ix = cellfun(@(c)find(ismember(c,{'V0' 'V1' 'V2'})),D.sylb_forms);
+D.sylbs_forms = regexp(D.sylbs_form,' ', 'split');
+D.sylbs_num_phones = cellfun(@(c)numel(c),D.sylbs_forms);
+D.sylbs_vowel_ix = cellfun(@(c)find(ismember(c,{'V0' 'V1' 'V2'})),D.sylbs_forms);
 
-D.stress = cellfun(@(c)find(ismember({'V0' 'V1' 'V2'},c))-1,D.sylb_forms);
+D.stress = cellfun(@(c)find(ismember({'V0' 'V1' 'V2'},c))-1,D.sylbs_forms);
 
-ix_ons = D.sylb_phone_ix<D.sylb_vowel_ix;
+ix_ons = D.sylbs_phones_ix<D.sylbs_vowel_ix;
 D.onset(ix_ons) = true;
-D.nclust(ix_ons) = D.sylb_vowel_ix(ix_ons)-1;
+D.nclust(ix_ons) = D.sylbs_vowel_ix(ix_ons)-1;
 
-ix_cod = D.sylb_phone_ix>D.sylb_vowel_ix;
+ix_cod = D.sylbs_phones_ix>D.sylbs_vowel_ix;
 D.coda(ix_cod) = true;
-D.nclust(ix_cod) = D.sylb_num_phones(ix_cod)-D.sylb_vowel_ix(ix_cod);
+D.nclust(ix_cod) = D.sylbs_num_phones(ix_cod)-D.sylbs_vowel_ix(ix_cod);
 
-D.manner = cellfun(@(c)PH.manner(ismember(PH.label,c)),D.phone);
-D.voice = cellfun(@(c)PH.voice(ismember(PH.label,c)),D.phone);
-D.stop = cellfun(@(c)PH.stop(ismember(PH.label,c)),D.phone);
-D.obstruent = cellfun(@(c)PH.obstruent(ismember(PH.label,c)),D.phone);
+D.manner = cellfun(@(c)PH.manner(ismember(PH.label,c)),D.phones);
+D.voice = cellfun(@(c)PH.voice(ismember(PH.label,c)),D.phones);
+D.stop = cellfun(@(c)PH.stop(ismember(PH.label,c)),D.phones);
+D.obstruent = cellfun(@(c)PH.obstruent(ismember(PH.label,c)),D.phones);
 
 save([h.data_dir 'metarate_durdata_consonants.mat'],'D');
 end

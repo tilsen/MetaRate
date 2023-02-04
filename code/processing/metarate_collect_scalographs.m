@@ -16,18 +16,20 @@ status('reset');
 
 T.sizes = T.scale; T.scale = [];
 
-%utility functions:
-
+%rename older field names
 sc_pars_in = {'target','rate_measure','inverse_rate','data_selection','window_method','target_exclusion'};
 sc_pars_out = {'target','unit','inversion','datasel','winmethod','exclusion'};
 
 for i=1:length(sc_pars_out)
-    if ~strcmp(sc_pars_out{i},sc_pars_in{i})
-        T.(sc_pars_out{i}) = T.(sc_pars_in{i});
-        T.(sc_pars_in{i}) = [];
+    if ~ismember(sc_pars_out{i},tabcols(T))
+        if ~strcmp(sc_pars_out{i},sc_pars_in{i})
+            T.(sc_pars_out{i}) = T.(sc_pars_in{i});
+            T.(sc_pars_in{i}) = [];
+        end
     end
 end
 
+%utility functions:
 PAR.RHO = grpstats(T,sc_pars_out,{'min','max'},'Datavars','rho');
 
 for i=1:length(sc_pars_out)

@@ -31,16 +31,16 @@ function [D,targetf] = gen_durdata(h,target)
 
 if contains(target,'vowel')
     load([h.data_dir 'metarate_durdata_vowels.mat'],'D');
-    targetf = 'phone';
+    targetf = 'phones';
     
 elseif contains(target,'consonant')
     load([h.data_dir 'metarate_durdata_consonants.mat'],'D');
-    targetf = 'phone';
+    targetf = 'phones';
     
 elseif contains(target,'syllable')
     load([h.data_dir 'metarate_durdata_syllables.mat'],'D');
-    targetf = 'sylb_form'; %use forms not segment sequences
-    D = D(~ismember(D.sylb,'sp'),:);
+    targetf = 'sylbs_form'; %use forms not segment sequences
+    D = D(~ismember(D.sylbs,'sp'),:);
     
 else
     fprintf('target %s not identified\n',target); return;

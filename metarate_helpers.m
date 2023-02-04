@@ -7,8 +7,6 @@ switch(ispc)
     case 1
         h.corpus_dir = 'M:\Data\Haskins_IEEE_Rate_Comparison_DB\';
         h.data_dir = 'M:\Data\metarate_opendata\';
-        %check_and_addpath('M:\Projects\toolboxes\drawbrace\');
-        %check_and_addpath('M:\Projects\toolboxes\arrow\');
 
     case 0
         h.corpus_dir = '/home/tilsen/Data/Haskins_IEEE_Rate_Comparison_DB/';
@@ -23,6 +21,8 @@ h.figures_dir = ['.' filesep 'figures' filesep];
 PH = metarate_phones();
 
 h.frame_rate = 1000;
+
+h.units = {'phones' 'moras' 'sylbs' 'words' 'artics'};
 
 h.sigma = [0.025 0.025];
 h.nancol = 0.8*ones(1,3);

@@ -20,8 +20,7 @@ targets = TARGS.target;
 %% analysis parameters
 R.unit = {'phones' 'words' 'sylbs' 'moras' 'artics'};
 R.target_exclusion = [true false];
-%R.window_method = {'extendwin','centered','adaptivewin','beginanchored','endanchored'};
-R.window_method = {'extendwin','adaptivewin'};
+R.window_method = {'extendwin','centered','adaptivewin','beginanchored','endanchored'};
 R.data_selection = {'bytarget' 'bywindow'};
 R.inverse_rate = 2; %(0: proper; 1: inverse; 2: do both in scalograph loop to save time)
 

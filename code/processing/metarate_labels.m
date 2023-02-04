@@ -2,8 +2,7 @@ function [panlab] = metarate_labels(G,labtype)
 
 targets = metarate_targets;
 
-%trg_symb = targets.symb(ismember(targets.target,G.target));
-trg_symb = @(x)targets.symb{ismember(targets.target,x)};
+trg_symb = @(x)target_symbol(targets,x);
 
 exc_strs = {'inc.)','exc.)'};
 exc_str = @(x)exc_strs{x+1};
@@ -13,7 +12,7 @@ inv_str = @(x)inv_strs{x+1};
 
 paren = @(x)['(' x ')'];
 
-ratestr = @(x)[x{:} ' rate '];
+ratestr = @(x)[x ' rate '];
 
 switch(labtype)
     case 'panel'
@@ -43,4 +42,14 @@ end
 
 panlab = regexprep(panlab,'_',' ');
 
+end
+
+%%
+function [symb] = target_symbol(targets,x)
+ix = find(ismember(targets.target,x));
+if isempty(ix)
+    symb = x;
+else
+    symb = targets.symb{ix};
+end
 end

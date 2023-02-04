@@ -3,7 +3,6 @@ function [] = fig_rate_parameters()
 %parses words/segments into syllables
 
 dbstop if error; close all;
-addpath('M:\Projects\toolboxes\hatchfill2_r8\');
 
 [h,PH] = metarate_helpers();
 

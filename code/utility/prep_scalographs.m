@@ -32,39 +32,46 @@ pos_col = h.pos_col;
 neg_col = h.neg_col;
 Ncol = 5000;
 
-
+%%
 for i=1:length(G)
+
+    %status_str = status('progress_full',i,length(G),'preparing scalographs'); %#ok<NASGU> 
     
     Gx = G(i).subset;
     
     if isempty(Gx), continue; end
     
+    %{'target','unit','inversion','datasel','winmethod','exclusion'}
+
     for j=1:length(Gx)
 
         if isempty(PAR)
             TT{i,j} = T(ismember(T.target,Gx(j).target) ...
-                & ismember(T.rate_measure,Gx(j).rate_meas) ...
-                & ismember(T.inverse_rate,Gx(j).inverse_rate)...
-                & ismember(T.target_exclusion,Gx(j).target_exclusion)...
-                & ismember(T.data_selection,Gx(j).data_selection),:);
+                & ismember(T.unit,Gx(j).unit) ...
+                & ismember(T.inversion,Gx(j).inversion)...
+                & ismember(T.datasel,Gx(j).datasel)...
+                & ismember(T.winmethod,Gx(j).winmethod)...
+                & ismember(T.exclusion,Gx(j).exclusion),:);
         else
-            TT{i,j} = PAR.index(T,Gx(j).target,Gx(j).rate_meas,Gx(j).inverse_rate,...
-                Gx(j).target_exclusion,Gx(j).data_selection);
+            TT{i,j} = PAR.index(T,Gx(j).target,Gx(j).unit,Gx(j).inversion,...
+                Gx(j).datasel,Gx(j).winmethod,Gx(j).exclusion);
         end
         
         if isempty(TT{i,j})
-            fprintf('error: scalogram values not found\n'); 
-            return;
+            
+            %fprintf('error: scalogram values not found\n'); 
+            %return;
+            continue; 
         end
                 
-        if Gx(j).inverse_rate==0
+        if Gx(j).inversion==0
             TT{i,j}.rho = -TT{i,j}.rho;
         end           
         
         [X{i,j},Y{i,j},Z{i,j}] = gen_scalogram(TT{i,j},scalogram_var,'filter',H); 
         
 
-        if ismember('endanchored',Gx(j).data_selection) && length(Gx)==2 %flip when plotting difference
+        if ismember({'endanchored'},Gx(j).winmethod) && length(Gx)==2 %flip when plotting difference
             Z{i,j} = fliplr(Z{i,j});
         end
         
@@ -110,6 +117,7 @@ for i=1:length(G)
     SC(i).ax_ix = p.Results.axes_index(i);
 
 end
+%status('reset');
 
 for i=1:length(climsets)
     clims = minmax([SC(climsets{i}).clims]);

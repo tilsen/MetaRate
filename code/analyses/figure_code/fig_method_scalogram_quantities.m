@@ -1,11 +1,11 @@
-function [] = fig_scalogram_quantities()
+function [] = fig_method_scalogram_quantities()
 
 dbstop if error; close all
 h = metarate_helpers;
 
 load([h.data_dir 'metarate_partialcorr_scalographs.mat'],'T');
 UTIL = T.Properties.UserData;
-T = UTIL.index(T,'vowels','phones',0,1,'bytarget');
+T = UTIL.index(T,'vowels','phones',0,'bytarget','centered',1);
 
 H.sigma = h.sigma;
 [X,Y,Z] = gen_scalogram(T,'rho','filter',H);
