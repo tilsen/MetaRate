@@ -207,6 +207,15 @@ th{1}(end-0).String = 'F^{\prime}';
 
 obj_fontsize(gcf,'axes',h.fs(end)-2,'legend',h.fs(3),'label',h.fs(3)-2);
 
+expand = @(c)c(:);
+for i=4:9
+    th{2}(i).String = expand(regexp(th{2}(i).String,'\s(?=\()','split','once'));
+    th{2}(i).String{2} = [blanks(2) th{2}(i).String{2}]; 
+    th{2}(i).VerticalAlignment = 'mid';
+end
+
+shiftposy(legh,-0.025);
+
 %%
 h.printfig(mfilename);
 
